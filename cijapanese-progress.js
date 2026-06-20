@@ -305,7 +305,7 @@
       const isCurrent = lvl.level === currentLvl.level;
       const isUnlocked = hours >= lvl.hours;
       const h = barHeights[i];
-      const color = isCurrent ? currentLvl.color : isUnlocked ? lvl.color + '66' : '#d0d0e0';
+      const color = isCurrent ? currentLvl.color : isUnlocked ? lvl.color + '55' : 'rgba(255,255,255,0.08)';
       return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
         <div style="width:100%;max-width:36px;height:${h}px;background:${color};border-radius:4px 4px 0 0;transition:all 0.3s"></div>
       </div>`;
@@ -315,27 +315,30 @@
     const levelsListHtml = LEVELS.map((lvl, i) => {
       const isCurrent = lvl.level === currentLvl.level;
       const isUnlocked = hours >= lvl.hours;
-      const opacity = isUnlocked ? '1' : '0.5';
-      const border = isCurrent ? `2px solid ${lvl.color}` : '2px solid transparent';
-      const bg = isCurrent ? lvl.bgColor : '#fff';
+      const border = isCurrent ? `1px solid ${lvl.color}` : '1px solid transparent';
+      const bg = isCurrent ? `${lvl.color}18` : 'transparent';
+      const nameColor = isUnlocked ? lvl.color : '#4b5563';
+      const tagColor = isUnlocked ? '#dce1e7' : '#4b5563';
+      const metaColor = isUnlocked ? '#64748b' : '#374151';
+      const iconBg = isUnlocked ? `${lvl.color}25` : 'rgba(255,255,255,0.04)';
+      const iconFilter = isUnlocked ? '' : 'grayscale(1) opacity(0.3)';
       return `
         <div class="cij-level-row" data-level-index="${i}" style="
           display:flex;align-items:center;gap:12px;
-          padding:12px 16px;border-radius:10px;cursor:pointer;
+          padding:10px 12px;border-radius:6px;cursor:pointer;
           border:${border};background:${bg};
-          opacity:${opacity};margin-bottom:8px;
-          transition:background 0.15s;
+          margin-bottom:4px;transition:background 0.15s;
         ">
-          <div style="width:44px;height:44px;background:${lvl.color}22;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${lvl.icon}</div>
+          <div style="width:40px;height:40px;background:${iconBg};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;filter:${iconFilter}">${lvl.icon}</div>
           <div style="flex:1;min-width:0">
-            <div style="font-size:14px;font-weight:700;color:${isUnlocked ? lvl.color : '#888'};margin-bottom:2px">Level ${lvl.level}</div>
-            <div style="font-size:12px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${lvl.tagline}</div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;font-size:11px;color:#888">
-              <span>🕐 ${fmt(lvl.hours)} hrs</span>
+            <div style="font-size:13px;font-weight:700;color:${nameColor};margin-bottom:1px">Level ${lvl.level}</div>
+            <div style="font-size:12px;color:${tagColor};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${lvl.tagline}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:3px;font-size:11px;color:${metaColor}">
+              <span>⏱ ${fmt(lvl.hours)} hrs</span>
               <span>💬 ${lvl.level === 7 ? '12,000+' : fmt(lvl.words)} words</span>
             </div>
           </div>
-          <div style="color:#ccc;font-size:16px">›</div>
+          <div style="color:#374151;font-size:16px">›</div>
         </div>`;
     }).join('');
 
@@ -343,60 +346,54 @@
     section.id = 'cij-progress-section';
     section.style.gridColumn = '1 / -1';
     section.innerHTML = `
-      <div style="
-        font-family:system-ui,-apple-system,sans-serif;
-        background:#f4f4fb;
-        border-radius:16px;
-        padding:28px 24px;
-        margin:0 0 24px 0;
-      ">
-        <h2 style="font-size:20px;font-weight:700;color:#222;margin:0 0 20px 0">My Progress</h2>
+      <div style="background:#182433;padding:20px 24px;">
+        <h2 style="font-size:18px;font-weight:700;color:#dce1e7;margin:0 0 16px 0">My Progress</h2>
 
-        <div style="display:flex;flex-wrap:wrap;gap:20px">
+        <div style="display:flex;flex-wrap:wrap;gap:16px">
 
           <!-- Left: Overall Progression -->
-          <div style="flex:1;min-width:260px;background:#fff;border-radius:14px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.06)">
-            <div style="font-size:15px;font-weight:700;color:#333;margin-bottom:20px">Overall progression</div>
+          <div style="flex:1;min-width:260px;background:rgba(255,255,255,0.05);border-radius:6px;padding:20px;border:1px solid rgba(255,255,255,0.08)">
+            <div style="font-size:14px;font-weight:600;color:#dce1e7;margin-bottom:16px">Overall progression</div>
 
             <!-- Bar chart -->
             <div style="display:flex;align-items:flex-end;gap:4px;height:${maxBarHeight}px;margin-bottom:16px;padding:0 4px">
               ${barsHtml}
             </div>
 
-            <div style="font-size:13px;color:#888;margin-bottom:4px">You are currently in</div>
-            <div style="font-size:20px;font-weight:800;color:${currentLvl.color};margin-bottom:20px">Level ${currentLvl.level}</div>
+            <div style="font-size:12px;color:#64748b;margin-bottom:2px">You are currently in</div>
+            <div style="font-size:20px;font-weight:800;color:${currentLvl.color};margin-bottom:16px">Level ${currentLvl.level}</div>
 
             <!-- Progress bar -->
-            <div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:6px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:#64748b;margin-bottom:5px">
               <span>Total input time</span>
-              <span style="font-weight:600">${Math.floor(hours)} hrs ${Math.round((hours % 1) * 60)} min</span>
+              <span style="font-weight:600;color:#dce1e7">${Math.floor(hours)} hrs ${Math.round((hours % 1) * 60)} min</span>
             </div>
-            <div style="background:#e8e8f4;border-radius:999px;height:8px;margin-bottom:4px;overflow:hidden">
+            <div style="background:rgba(255,255,255,0.1);border-radius:999px;height:6px;margin-bottom:4px;overflow:hidden">
               <div style="background:${currentLvl.color};height:100%;width:${progressToNext}%;border-radius:999px;transition:width 0.6s ease"></div>
             </div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:#aaa;margin-bottom:16px">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:#374151;margin-bottom:14px">
               <span>${fmt(currentLvl.hours)} hrs</span>
               <span>${nextLvl ? fmt(nextLvl.hours) + ' hrs' : '✓ Max level'}</span>
             </div>
 
             ${nextLvl ? `
-            <div style="background:#e8f4fb;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:${dailyRate ? '8px' : '0'}">
-              <span style="color:#3a7bbf">Hours to Level ${nextLvl.level}</span>
-              <span style="font-weight:700;color:#3a7bbf">${fmt(hoursToNext)} hrs</span>
+            <div style="background:rgba(59,130,246,0.15);border-radius:6px;padding:9px 12px;display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:${dailyRate ? '6px' : '0'}">
+              <span style="color:#93c5fd">Hours to Level ${nextLvl.level}</span>
+              <span style="font-weight:700;color:#93c5fd">${fmt(hoursToNext)} hrs</span>
             </div>
             ${dailyRate ? `
-            <div style="background:#edf7ed;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;font-size:13px">
-              <span style="color:#3a7a4a">At your current pace (${dailyRate.toFixed(1)} hrs/day)</span>
-              <span style="font-weight:700;color:#3a7a4a">~${Math.ceil(hoursToNext / dailyRate)} days</span>
+            <div style="background:rgba(34,197,94,0.12);border-radius:6px;padding:9px 12px;display:flex;justify-content:space-between;align-items:center;font-size:13px">
+              <span style="color:#86efac">At your current pace (${dailyRate.toFixed(1)} hrs/day)</span>
+              <span style="font-weight:700;color:#86efac">~${Math.ceil(hoursToNext / dailyRate)} days</span>
             </div>` : ''}` : `
-            <div style="background:#e8fbf0;border-radius:8px;padding:10px 14px;text-align:center;font-size:13px;color:#2a9a4a;font-weight:600">
+            <div style="background:rgba(34,197,94,0.12);border-radius:6px;padding:9px 12px;text-align:center;font-size:13px;color:#86efac;font-weight:600">
               🎉 You've reached the highest level!
             </div>`}
           </div>
 
           <!-- Right: Levels List -->
-          <div style="flex:1;min-width:280px;background:#fff;border-radius:14px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,0.06)">
-            <div style="font-size:15px;font-weight:700;color:#333;margin-bottom:16px">Levels</div>
+          <div style="flex:1;min-width:280px;background:rgba(255,255,255,0.05);border-radius:6px;padding:20px;border:1px solid rgba(255,255,255,0.08)">
+            <div style="font-size:14px;font-weight:600;color:#dce1e7;margin-bottom:12px">Levels</div>
             <div id="cij-levels-list">
               ${levelsListHtml}
             </div>
@@ -412,9 +409,14 @@
         openModal(parseInt(row.dataset.levelIndex, 10));
       });
       row.addEventListener('mouseenter', () => {
-        row.style.background = row.style.background === 'rgb(255, 255, 255)' || !row.style.background
-          ? '#f8f8fe'
-          : row.style.background;
+        const lvlIdx = parseInt(row.dataset.levelIndex, 10);
+        const isCurrent = LEVELS[lvlIdx].level === currentLvl.level;
+        if (!isCurrent) row.style.background = 'rgba(255,255,255,0.07)';
+      });
+      row.addEventListener('mouseleave', () => {
+        const lvlIdx = parseInt(row.dataset.levelIndex, 10);
+        const isCurrent = LEVELS[lvlIdx].level === currentLvl.level;
+        row.style.background = isCurrent ? `${LEVELS[lvlIdx].color}18` : 'transparent';
       });
     });
 
