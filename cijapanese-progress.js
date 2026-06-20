@@ -125,6 +125,61 @@
     return n.toLocaleString();
   }
 
+  async function getRecentDailyRate() {
+    // Approach 1: read the cumulative study time chart from Chart.js instances
+    if (window.Chart) {
+      try {
+        const instances = Object.values(Chart.instances || {});
+        for (const chart of instances) {
+          const data = chart.data?.datasets?.[0]?.data;
+          if (!Array.isArray(data) || data.length < 2) continue;
+          const nums = data
+            .map(v => (typeof v === 'object' && v !== null) ? v.y : v)
+            .filter(n => typeof n === 'number');
+          if (nums.length < 2) continue;
+          const gained = nums[nums.length - 1] - nums[0];
+          const days = nums.length - 1;
+          // Cumulative hours chart: values ~50-5000, clearly increasing
+          if (gained > 0 && gained < 1000 && days >= 7) return gained / days;
+        }
+        // Also try via canvas elements (Chart.js 3+ internal ref)
+        for (const canvas of document.querySelectorAll('canvas')) {
+          const chart = canvas.__chartjs__?.chart || canvas._chart;
+          if (!chart) continue;
+          const data = chart.data?.datasets?.[0]?.data;
+          if (!Array.isArray(data) || data.length < 2) continue;
+          const nums = data
+            .map(v => (typeof v === 'object' && v !== null) ? v.y : v)
+            .filter(n => typeof n === 'number');
+          if (nums.length < 2) continue;
+          const gained = nums[nums.length - 1] - nums[0];
+          const days = nums.length - 1;
+          if (gained > 0 && gained < 1000 && days >= 7) return gained / days;
+        }
+      } catch (e) {}
+    }
+
+    // Approach 2: fetch the activities API the page already calls
+    try {
+      const resp = await fetch('/api/v1/activities', { credentials: 'same-origin' });
+      if (resp.ok) {
+        const json = await resp.json();
+        const list = json.data?.activities || (Array.isArray(json) ? json : []);
+        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        let totalSeconds = 0;
+        for (const item of list) {
+          const ts = new Date(item.date || item.created_at || item.timestamp);
+          if (!isNaN(ts) && ts.getTime() >= thirtyDaysAgo) {
+            totalSeconds += item.duration || 0; // duration is in seconds
+          }
+        }
+        if (totalSeconds > 0) return (totalSeconds / 3600) / 30;
+      }
+    } catch (e) {}
+
+    return null;
+  }
+
   // ─── Modal ─────────────────────────────────────────────────────────────────
 
   let modalLevelIndex = 0;
@@ -233,7 +288,7 @@
 
   // ─── Main Progress Section ─────────────────────────────────────────────────
 
-  function buildProgressSection(hours) {
+  function buildProgressSection(hours, dailyRate) {
     const currentLvl = getCurrentLevel(hours);
     const nextLvl = getNextLevel(currentLvl);
     const prevLvl = LEVELS.find(l => l.level === currentLvl.level - 1) || null;
@@ -325,10 +380,15 @@
             </div>
 
             ${nextLvl ? `
-            <div style="background:#e8f4fb;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;font-size:13px">
+            <div style="background:#e8f4fb;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:${dailyRate ? '8px' : '0'}">
               <span style="color:#3a7bbf">Hours to Level ${nextLvl.level}</span>
               <span style="font-weight:700;color:#3a7bbf">${fmt(hoursToNext)} hrs</span>
-            </div>` : `
+            </div>
+            ${dailyRate ? `
+            <div style="background:#edf7ed;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;font-size:13px">
+              <span style="color:#3a7a4a">At your current pace (${dailyRate.toFixed(1)} hrs/day)</span>
+              <span style="font-weight:700;color:#3a7a4a">~${Math.ceil(hoursToNext / dailyRate)} days</span>
+            </div>` : ''}` : `
             <div style="background:#e8fbf0;border-radius:8px;padding:10px 14px;text-align:center;font-size:13px;color:#2a9a4a;font-weight:600">
               🎉 You've reached the highest level!
             </div>`}
@@ -363,8 +423,8 @@
 
   // ─── Injection ─────────────────────────────────────────────────────────────
 
-  function inject() {
-    if (document.getElementById('cij-progress-section')) return;
+  async function inject() {
+    if (document.getElementById('cij-progress-section')) return true;
 
     const hours = getInputHours();
     if (hours === null) return false;
@@ -372,7 +432,8 @@
     const main = document.querySelector('main');
     if (!main) return false;
 
-    const section = buildProgressSection(hours);
+    const dailyRate = await getRecentDailyRate();
+    const section = buildProgressSection(hours, dailyRate);
     buildModal();
 
     // Insert before the first <section> (just after the Dashboard heading row)
@@ -386,14 +447,17 @@
     return true;
   }
 
-  // Poll until the hours element appears in the DOM (React may render async)
+  // Poll until the hours element appears in the DOM (Svelte may render async)
   let attempts = 0;
+  let injecting = false;
   const maxAttempts = 600; // 30 seconds at 50ms
-  const timer = setInterval(() => {
+  const timer = setInterval(async () => {
+    if (injecting) return;
     attempts++;
-    if (inject() || attempts >= maxAttempts) {
-      clearInterval(timer);
-    }
+    injecting = true;
+    const done = await inject();
+    injecting = false;
+    if (done || attempts >= maxAttempts) clearInterval(timer);
   }, 50);
 
 })();
