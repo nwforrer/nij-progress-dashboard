@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  if (!location.pathname.startsWith('/dashboard')) return;
+  // ─── SPA Navigation ────────────────────────────────────────────────────────
 
   // ─── Level Data ────────────────────────────────────────────────────────────
 
@@ -449,17 +449,52 @@
     return true;
   }
 
-  // Poll until the hours element appears in the DOM (Svelte may render async)
-  let attempts = 0;
-  let injecting = false;
-  const maxAttempts = 600; // 30 seconds at 50ms
-  const timer = setInterval(async () => {
-    if (injecting) return;
-    attempts++;
-    injecting = true;
-    const done = await inject();
-    injecting = false;
-    if (done || attempts >= maxAttempts) clearInterval(timer);
-  }, 50);
+  // ─── Polling ───────────────────────────────────────────────────────────────
+
+  let pollTimer = null;
+
+  function cleanup() {
+    document.getElementById('cij-progress-section')?.remove();
+    document.getElementById('cij-progress-modal-overlay')?.remove();
+  }
+
+  function startInjection() {
+    if (pollTimer) clearInterval(pollTimer);
+    cleanup();
+
+    if (!location.pathname.startsWith('/dashboard')) return;
+
+    let attempts = 0;
+    let injecting = false;
+    const maxAttempts = 600; // 30 seconds at 50ms
+
+    pollTimer = setInterval(async () => {
+      if (injecting) return;
+      attempts++;
+      injecting = true;
+      const done = await inject();
+      injecting = false;
+      if (done || attempts >= maxAttempts) clearInterval(pollTimer);
+    }, 50);
+  }
+
+  // Intercept Svelte's client-side navigation (pushState / replaceState / popstate)
+  const _push = history.pushState.bind(history);
+  const _replace = history.replaceState.bind(history);
+
+  history.pushState = function (...args) {
+    _push(...args);
+    setTimeout(startInjection, 0);
+  };
+
+  history.replaceState = function (...args) {
+    _replace(...args);
+    setTimeout(startInjection, 0);
+  };
+
+  window.addEventListener('popstate', () => setTimeout(startInjection, 0));
+
+  // Initial run
+  startInjection();
 
 })();
