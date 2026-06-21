@@ -165,15 +165,20 @@
       if (resp.ok) {
         const json = await resp.json();
         const list = json.data?.activities || (Array.isArray(json) ? json : []);
-        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
         let totalSeconds = 0;
+        let minTs = Infinity, maxTs = -Infinity;
         for (const item of list) {
-          const ts = new Date(item.date || item.created_at || item.timestamp);
-          if (!isNaN(ts) && ts.getTime() >= thirtyDaysAgo) {
+          const ts = new Date(item.date || item.created_at || item.timestamp).getTime();
+          if (!isNaN(ts)) {
             totalSeconds += item.duration || 0; // duration is in seconds
+            if (ts < minTs) minTs = ts;
+            if (ts > maxTs) maxTs = ts;
           }
         }
-        if (totalSeconds > 0) return (totalSeconds / 3600) / 30;
+        if (totalSeconds > 0 && maxTs > minTs) {
+          const days = (maxTs - minTs) / (1000 * 60 * 60 * 24) + 1;
+          return (totalSeconds / 3600) / days;
+        }
       }
     } catch (e) {}
 
