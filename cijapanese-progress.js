@@ -126,40 +126,7 @@
   }
 
   async function getRecentDailyRate() {
-    // Approach 1: read the cumulative study time chart from Chart.js instances
-    if (window.Chart) {
-      try {
-        const instances = Object.values(Chart.instances || {});
-        for (const chart of instances) {
-          const data = chart.data?.datasets?.[0]?.data;
-          if (!Array.isArray(data) || data.length < 2) continue;
-          const nums = data
-            .map(v => (typeof v === 'object' && v !== null) ? v.y : v)
-            .filter(n => typeof n === 'number');
-          if (nums.length < 2) continue;
-          const gained = nums[nums.length - 1] - nums[0];
-          const days = nums.length - 1;
-          // Cumulative hours chart: values ~50-5000, clearly increasing
-          if (gained > 0 && gained < 1000 && days >= 7) return gained / days;
-        }
-        // Also try via canvas elements (Chart.js 3+ internal ref)
-        for (const canvas of document.querySelectorAll('canvas')) {
-          const chart = canvas.__chartjs__?.chart || canvas._chart;
-          if (!chart) continue;
-          const data = chart.data?.datasets?.[0]?.data;
-          if (!Array.isArray(data) || data.length < 2) continue;
-          const nums = data
-            .map(v => (typeof v === 'object' && v !== null) ? v.y : v)
-            .filter(n => typeof n === 'number');
-          if (nums.length < 2) continue;
-          const gained = nums[nums.length - 1] - nums[0];
-          const days = nums.length - 1;
-          if (gained > 0 && gained < 1000 && days >= 7) return gained / days;
-        }
-      } catch (e) {}
-    }
-
-    // Approach 2: fetch the activities API the page already calls
+    // Fetch the activities API the page already calls
     try {
       const resp = await fetch('/api/v1/activities', { credentials: 'same-origin' });
       if (resp.ok) {
@@ -185,7 +152,9 @@
           return (totalSeconds / 3600) / days;
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.debug('[cij-progress] failed to fetch daily rate', e);
+    }
 
     return null;
   }
@@ -244,7 +213,7 @@
           <div style="font-size:15px;color:#444;margin-bottom:10px">${lvl.tagline}</div>
           <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:13px;color:#666">
             <span>🕐 Hours of input: <strong>${fmt(lvl.hours)}</strong></span>
-            <span>💬 Known words: <strong>${lvl.level === 7 ? '12,000+' : fmt(lvl.words)}</strong></span>
+            <span>💬 Known words: <strong>${levelIndex === LEVELS.length - 1 ? fmt(lvl.words) + '+' : fmt(lvl.words)}</strong></span>
           </div>
         </div>
         <button id="cij-modal-close" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;padding:0;line-height:1;flex-shrink:0">×</button>
@@ -310,11 +279,11 @@
 
     // ── Bar chart ──
     const maxBarHeight = 100;
-    const barHeights = [14, 24, 38, 54, 72, 88, 100];
+    const minBarHeight = 14;
     const barsHtml = LEVELS.map((lvl, i) => {
       const isCurrent = lvl.level === currentLvl.level;
       const isUnlocked = hours >= lvl.hours;
-      const h = barHeights[i];
+      const h = minBarHeight + (maxBarHeight - minBarHeight) * (i / (LEVELS.length - 1));
       const color = isCurrent ? currentLvl.color : isUnlocked ? lvl.color + '55' : 'rgba(255,255,255,0.08)';
       return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
         <div style="width:100%;max-width:36px;height:${h}px;background:${color};border-radius:4px 4px 0 0;transition:all 0.3s"></div>
@@ -333,7 +302,7 @@
       const iconBg = isUnlocked ? `${lvl.color}25` : 'rgba(255,255,255,0.04)';
       const iconFilter = isUnlocked ? '' : 'grayscale(1) opacity(0.3)';
       return `
-        <div class="cij-level-row" data-level-index="${i}" style="
+        <div class="cij-level-row" data-level-index="${i}" data-current="${isCurrent}" data-bg="${bg}" style="
           display:flex;align-items:center;gap:12px;
           padding:10px 12px;border-radius:6px;cursor:pointer;
           border:${border};background:${bg};
@@ -345,7 +314,7 @@
             <div style="font-size:12px;color:${tagColor};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${lvl.tagline}</div>
             <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:3px;font-size:11px;color:${metaColor}">
               <span>⏱ ${fmt(lvl.hours)} hrs</span>
-              <span>💬 ${lvl.level === 7 ? '12,000+' : fmt(lvl.words)} words</span>
+              <span>💬 ${i === LEVELS.length - 1 ? fmt(lvl.words) + '+' : fmt(lvl.words)} words</span>
             </div>
           </div>
           <div style="color:#374151;font-size:16px">›</div>
@@ -419,14 +388,10 @@
         openModal(parseInt(row.dataset.levelIndex, 10));
       });
       row.addEventListener('mouseenter', () => {
-        const lvlIdx = parseInt(row.dataset.levelIndex, 10);
-        const isCurrent = LEVELS[lvlIdx].level === currentLvl.level;
-        if (!isCurrent) row.style.background = 'rgba(255,255,255,0.07)';
+        if (row.dataset.current !== 'true') row.style.background = 'rgba(255,255,255,0.07)';
       });
       row.addEventListener('mouseleave', () => {
-        const lvlIdx = parseInt(row.dataset.levelIndex, 10);
-        const isCurrent = LEVELS[lvlIdx].level === currentLvl.level;
-        row.style.background = isCurrent ? `${LEVELS[lvlIdx].color}18` : 'transparent';
+        row.style.background = row.dataset.bg;
       });
     });
 
