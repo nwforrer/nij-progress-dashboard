@@ -165,18 +165,23 @@
       if (resp.ok) {
         const json = await resp.json();
         const list = json.data?.activities || (Array.isArray(json) ? json : []);
+        const todayStr = new Date().toISOString().slice(0, 10);
         let totalSeconds = 0;
-        let minTs = Infinity, maxTs = -Infinity;
+        let minDateMs = Infinity;
         for (const item of list) {
-          const ts = new Date(item.date || item.created_at || item.timestamp).getTime();
+          const dateStr = (item.date || item.created_at || item.timestamp || '').slice(0, 10);
+          // Exclude today (and any future dates), since a partial day skews the pace down.
+          if (!dateStr || dateStr >= todayStr) continue;
+          const ts = Date.parse(dateStr + 'T00:00:00Z');
           if (!isNaN(ts)) {
             totalSeconds += item.duration || 0; // duration is in seconds
-            if (ts < minTs) minTs = ts;
-            if (ts > maxTs) maxTs = ts;
+            if (ts < minDateMs) minDateMs = ts;
           }
         }
-        if (totalSeconds > 0 && maxTs > minTs) {
-          const days = (maxTs - minTs) / (1000 * 60 * 60 * 24) + 1;
+        if (totalSeconds > 0 && minDateMs !== Infinity) {
+          const yesterdayMs = Date.parse(todayStr + 'T00:00:00Z') - 24 * 60 * 60 * 1000;
+          // Range is earliest activity day through yesterday, so gaps with no recent activity pull the average down.
+          const days = (yesterdayMs - minDateMs) / (1000 * 60 * 60 * 24) + 1;
           return (totalSeconds / 3600) / days;
         }
       }
